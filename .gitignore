@@ -1,0 +1,6 @@
+adv1d*.vtr
+adv1d.vtp
+.sconsign.dblite
+*~
+/build/*
+/build*
