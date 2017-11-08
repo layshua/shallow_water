@@ -1,7 +1,7 @@
 Compile
 ======
-Go to adv1d
-Run [scons](http://www.scons.org/)
+    Go to adv1d
+    Run [scons](http://www.scons.org/)
 
 Run
 ======
