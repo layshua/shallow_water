@@ -47,10 +47,10 @@ T WavePropagation::computeNumericalFluxes(T dt)
 		T maxEdgeSpeed;
 
 		// Compute net updates
-		LaxFriedrichsFlux(m_u[i-1], m_u[i],
-				  dt, m_cellSize,
-				  m_uNetUpdatesLeft[i-1], m_uNetUpdatesRight[i-1],
-			          maxEdgeSpeed );
+		LaxFriedrichsFlux(m_q[i-1], m_q[i],
+				dt, m_cellSize,
+				m_uNetUpdatesLeft[i-1], m_uNetUpdatesRight[i-1],
+			    maxEdgeSpeed );
 
 		// Update maxWaveSpeed
 		if (maxEdgeSpeed > maxWaveSpeed){
@@ -68,34 +68,44 @@ void WavePropagation::updateUnknowns(T dt)
 {
   // Loop over all inner cells see Leveque p229 eq. (12.5)
    for (unsigned int i = 1; i < m_size+1; i++) {
-     m_u[i] -=  dt/m_cellSize * (m_uNetUpdatesRight[i-1] + m_uNetUpdatesLeft[i-1]);
+     m_q[i].h -=  dt/m_cellSize * (m_uNetUpdatesRight[i-1].h + m_uNetUpdatesLeft[i-1].h);
+     m_q[i].hu -=  dt/m_cellSize * (m_uNetUpdatesRight[i-1].hu + m_uNetUpdatesLeft[i-1].hu);
   }
 }
 
 void WavePropagation::setOutflowBoundaryConditions()
 {
-	m_u[0] = m_u[1]; m_u[m_size+1] = m_u[m_size];
+	m_q[0] = m_q[1]; 
+	m_q[m_size+1] = m_q[m_size];
 }
 
 void WavePropagation::setPeriodicBoundaryConditions()
 {
-  m_u[m_size+1] = m_u[1];
-  m_u[0] = m_u[m_size];
+  m_q[m_size+1] = m_q[1];
+  m_q[0] = m_q[m_size];
 }
 
 
 
 // See Leveque p. 234 eq 12.15
-void WavePropagation::LaxFriedrichsFlux(T u_l,T u_r,T dt, T dx, T& uNetUpdatesLeft, T& uNetUpdatesRight, T& maxEdgeSpeed)
+void WavePropagation::LaxFriedrichsFlux(Q q_l, Q q_r, T dt, T dx, 
+	Q& uNetUpdatesLeft, 
+	Q& uNetUpdatesRight, 
+	T& maxEdgeSpeed)
 {
 
-  T flux_l = u_l * ADVECTION_A;
-  T flux_r = u_r * ADVECTION_A;
+  T flux_lh  = q_l.h  * ADVECTION_A;
+  T flux_lhu = q_l.hu * ADVECTION_A;
+  T flux_rh  = q_r.h  * ADVECTION_A;
+  T flux_rhu = q_r.hu * ADVECTION_A;
   T a = dx/dt;
 
   maxEdgeSpeed = fabs(ADVECTION_A);
   //  std::cout << maxEdgeSpeed << std::endl;
 
-  uNetUpdatesRight = 0.5*((flux_r - flux_l) - a *(u_r -u_l));
-  uNetUpdatesLeft= 0.5*((flux_r - flux_l) + a *(u_r -u_l));
+  uNetUpdatesRight.h  = 0.5*((flux_rh - flux_lh) - a*(q_r.h - q_l.h));
+  uNetUpdatesRight.hu = 0.5*((flux_rhu - flux_lhu) - a*(q_r.hu - q_l.hu));
+  uNetUpdatesLeft.h   = 0.5*((flux_rh - flux_lh) + a*(q_r.h - q_l.h));
+  uNetUpdatesLeft.hu  = 0.5*((flux_rhu - flux_lhu) + a*(q_r.hu - q_l.hu));
 }
+

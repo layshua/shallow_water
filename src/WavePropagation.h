@@ -73,28 +73,27 @@
 class WavePropagation
 {
 private:
-	T *m_u;
-
-	T *m_uNetUpdatesLeft;
-	T *m_uNetUpdatesRight;
-
+	Q *m_q;
+	// TODO: I assume these are supposed to be Q as well
+	Q *m_uNetUpdatesLeft;
+	Q *m_uNetUpdatesRight;
 	unsigned int m_size;
-
 	T m_cellSize;
+
 
 public:
 	/**
 	 * @param size Domain size (= number of cells) without ghost cells
 	 * @param cellSize Size of one cell
 	 */
-	WavePropagation(T* u,  unsigned int size, T cellSize)
-		: m_u(u),
+	WavePropagation(Q* q, unsigned int size, T cellSize)
+		: m_q(q),
 		  m_size(size),
 		  m_cellSize(cellSize)
 	{
 		// Allocate net updates
-		m_uNetUpdatesLeft = new T[size+1];
-		m_uNetUpdatesRight = new T[size+1];
+		m_uNetUpdatesLeft = new Q[size+1];
+		m_uNetUpdatesRight = new Q[size+1];
 	}
 
 	~WavePropagation()
@@ -135,7 +134,8 @@ public:
 	 * Compute fluctuations between left and right cell
 	 */
 
-	void LaxFriedrichsFlux(T u_l, T u_r,T dt, T dx, T& uNetUpdatesLeft, T& uNetUpdatesRight,T& maxEdgeSpeed);
+	void LaxFriedrichsFlux(Q q_l, Q q_r, T dt, T dx,
+                         Q& uNetUpdatesLeft, Q& uNetUpdatesRight, T& maxEdgeSpeed);
 
 	/**
 	 * Flux function for the advection equation

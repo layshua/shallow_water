@@ -59,14 +59,12 @@ public:
 	/**
 	 * @return Initial u at pos
 	 */
-	T getU(unsigned int pos)
+	Q getQ(unsigned int pos)
 	{
 	  T mid = m_size/2.0;
 	  T pos_rel = (mid-pos)/(m_size/10.0);
-	  return exp(-(pos_rel)*(pos_rel));
-	  
-	  
-	  //	  return 1.0;
+	  T h = exp(-(pos_rel)*(pos_rel));
+	  return {h, 0};
 	}
 
 	/**

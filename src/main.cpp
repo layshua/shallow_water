@@ -51,15 +51,12 @@ int main(int argc, char** argv)
 	// Scenario
 	scenarios::Gaussian scenario(args.size());
 
-	// Allocate memory
-	// Water height
-	T *u = new T[args.size()+2];
-	// Momentum
-
+	// Allocate memory across spatial domain
+	Q *q = new Q[args.size()+2];
 
 	// Initialize water height and momentum
-	for (unsigned int i = 0; i < args.size()+2; i++)
-	  u[i] = scenario.getU(i);
+	for (unsigned int x = 0; x < args.size()+2; x++)
+	  q[x] = scenario.getQ(x);
 
 
 	// Create a writer that is responsible printing out values
@@ -67,7 +64,7 @@ int main(int argc, char** argv)
 	writer::VtkWriter writer("adv1d", scenario.getCellSize());
 
 	// Helper class computing the wave propagation
-	WavePropagation wavePropagation(u, args.size(), scenario.getCellSize());
+	WavePropagation wavePropagation(q, args.size(), scenario.getCellSize());
 
 	// Write initial data
 	tools::Logger::logger.info("Initial data");
@@ -75,7 +72,7 @@ int main(int argc, char** argv)
 	// Current time of simulation
 	T t = 0;
 
-	writer.write(t, u, args.size());
+	writer.write(t, q, args.size());
 	
 	T maxTimeStep = args.size()/WavePropagation::ADVECTION_A * .4f;
 
@@ -98,11 +95,11 @@ int main(int argc, char** argv)
 		t += maxTimeStep;
 
 		// Write new values
-		writer.write(t, u, args.size());
+		writer.write(t, q, args.size());
 	}
 
 	// Free allocated memory
-	delete [] u;
+	delete [] q;
 
 	return 0;
 }

@@ -37,9 +37,17 @@
 #ifndef TYPES_H_
 #define TYPES_H_
 
-
 // Switch precision here
 typedef float T;
 //typedef double T;
+
+struct Q {
+	T h;
+	T hu;
+
+  //	Q operator-(Q & lhs, Q & rhs) {
+	//	return {lhs.h - rhs.h, lhs.hu - rhs.hu};
+	//}
+};
 
 #endif /* TYPES_H_ */

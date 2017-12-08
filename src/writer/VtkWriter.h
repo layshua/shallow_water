@@ -102,7 +102,7 @@ public:
 	 *
 	 * @param size Number of cells (without boundary values)
 	 */
-	void write(const T time, const T *u,  unsigned int size)
+	void write(const T time, const Q *q,  unsigned int size)
 	{
 		// generate vtk file name
 		std::string l_fileName = generateFileName();
@@ -148,11 +148,16 @@ public:
 		vtkFile << "<CellData>" << std::endl;
 
 		// water surface height
-		vtkFile << "<DataArray Name=\"u\" type=\"Float32\" format=\"ascii\">" << std::endl;
+		vtkFile << "<DataArray Name=\"h\" type=\"Float32\" format=\"ascii\">" << std::endl;
 		for (int i=1; i < size+1; i++)
-				vtkFile << u[i] << std::endl;
+				vtkFile << q[i].h << std::endl;
 		vtkFile << "</DataArray>" << std::endl;
 
+		// water momentum
+		vtkFile << "<DataArray Name=\"hu\" type=\"Float32\" format=\"ascii\">" << std::endl;
+		for (int i=1; i < size+1; i++)
+      vtkFile << q[i].hu << std::endl;
+		vtkFile << "</DataArray>" << std::endl;
 
 		vtkFile << "</CellData>" << std::endl
 				<< "</Piece>" << std::endl;
