@@ -84,7 +84,21 @@ void WavePropagation::setPeriodicBoundaryConditions()
   m_q[0] = m_q[m_size];
 }
 
+// Returns pointwise flux for advection. Updates maxEdgeSpeed reference. TODO: Do we want this?
+Q f_advection(Q q, T& maxEdgeSpeed) {
+  const T ADVECTION_A = 0.25;
+  T dh = q.h * ADVECTION_A;
+  T dhu = q.hu * ADVECTION_A;
+  maxEdgeSpeed = fabs(ADVECTION_A);
+  return {dh, dhu};
+}
 
+Q f_shallowwater(Q q, T& maxEdgeSpeed) {
+  T dh = q.hu;
+  const T G = 9.81;
+  T dhu = q.hu*q.hu/q.h + 0.5*G*q.h*q.h;
+  return {dh, dhu};
+}
 
 // See Leveque p. 234 eq 12.15
 void WavePropagation::LaxFriedrichsFlux(Q q_l, Q q_r, T dt, T dx,
@@ -93,18 +107,15 @@ void WavePropagation::LaxFriedrichsFlux(Q q_l, Q q_r, T dt, T dx,
                                         T& maxEdgeSpeed)
 {
 
-  T flux_lh  = q_l.h  * ADVECTION_A;
-  T flux_lhu = q_l.hu * ADVECTION_A;
-  T flux_rh  = q_r.h  * ADVECTION_A;
-  T flux_rhu = q_r.hu * ADVECTION_A;
+  Q flux_l = f_shallowwater(q_l, maxEdgeSpeed);
+  Q flux_r = f_shallowwater(q_r, maxEdgeSpeed);
   T a = dx/dt;
 
-  maxEdgeSpeed = fabs(ADVECTION_A);
   //  std::cout << maxEdgeSpeed << std::endl;
 
-  uNetUpdatesRight.h  = 0.5*((flux_rh - flux_lh) - a*(q_r.h - q_l.h));
-  uNetUpdatesRight.hu = 0.5*((flux_rhu - flux_lhu) - a*(q_r.hu - q_l.hu));
-  uNetUpdatesLeft.h   = 0.5*((flux_rh - flux_lh) + a*(q_r.h - q_l.h));
-  uNetUpdatesLeft.hu  = 0.5*((flux_rhu - flux_lhu) + a*(q_r.hu - q_l.hu));
+  uNetUpdatesRight.h  = 0.5*((flux_r.h - flux_l.h) - a*(q_r.h - q_l.h));
+  uNetUpdatesRight.hu = 0.5*((flux_r.hu - flux_l.hu) - a*(q_r.hu - q_l.hu));
+  uNetUpdatesLeft.h   = 0.5*((flux_r.h - flux_l.h) + a*(q_r.h - q_l.h));
+  uNetUpdatesLeft.hu  = 0.5*((flux_r.hu - flux_l.hu) + a*(q_r.hu - q_l.hu));
 }
 
