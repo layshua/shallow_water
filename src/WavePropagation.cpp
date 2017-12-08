@@ -47,10 +47,9 @@ T WavePropagation::computeNumericalFluxes(T dt)
 		T maxEdgeSpeed;
 
 		// Compute net updates
-		LaxFriedrichsFlux(m_q[i-1], m_q[i],
-				dt, m_cellSize,
-				m_uNetUpdatesLeft[i-1], m_uNetUpdatesRight[i-1],
-			    maxEdgeSpeed );
+		LaxFriedrichsFlux(m_q[i-1], m_q[i], dt, m_cellSize,
+                      m_uNetUpdatesLeft[i-1], m_uNetUpdatesRight[i-1],
+                      maxEdgeSpeed );
 
 		// Update maxWaveSpeed
 		if (maxEdgeSpeed > maxWaveSpeed){
@@ -88,10 +87,10 @@ void WavePropagation::setPeriodicBoundaryConditions()
 
 
 // See Leveque p. 234 eq 12.15
-void WavePropagation::LaxFriedrichsFlux(Q q_l, Q q_r, T dt, T dx, 
-	Q& uNetUpdatesLeft, 
-	Q& uNetUpdatesRight, 
-	T& maxEdgeSpeed)
+void WavePropagation::LaxFriedrichsFlux(Q q_l, Q q_r, T dt, T dx,
+                                        Q& uNetUpdatesLeft,
+                                        Q& uNetUpdatesRight,
+                                        T& maxEdgeSpeed)
 {
 
   T flux_lh  = q_l.h  * ADVECTION_A;

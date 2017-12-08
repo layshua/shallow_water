@@ -1,5 +1,7 @@
 .PHONY: run build show
 
+alles: build run show
+
 build:
 	scons
 
@@ -8,4 +10,4 @@ run:
 
 show:
 	paraview --state=plot.pvsm
-	# paraview --data=output/adv1d_..vtr
+	#paraview --data=output/adv1d_..vtr
