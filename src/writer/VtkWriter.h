@@ -102,7 +102,7 @@ public:
 	 *
 	 * @param size Number of cells (without boundary values)
 	 */
-	void write(const T time, const Q *q,  unsigned int size)
+	void write(const T time, const Q *q, const T *maxEdgeSpeed, unsigned int size)
 	{
 		// generate vtk file name
 		std::string l_fileName = generateFileName();
@@ -158,6 +158,12 @@ public:
 		for (int i=1; i < size+1; i++)
       vtkFile << q[i].hu << std::endl;
 		vtkFile << "</DataArray>" << std::endl;
+
+		// water momentum
+		vtkFile << "<DataArray Name=\"maxEdgeSpeed\" type=\"Float32\" format=\"ascii\">" << std::endl;
+		for (int i=1; i < size+1; i++)
+      vtkFile << maxEdgeSpeed[i] << std::endl;
+    vtkFile << "</DataArray>" << std::endl;
 
 		vtkFile << "</CellData>" << std::endl
 				<< "</Piece>" << std::endl;

@@ -72,7 +72,7 @@ int main(int argc, char** argv)
 	// Current time of simulation
 	T t = 0;
 
-	writer.write(t, q, args.size());
+	writer.write(t, q, wavePropagation.m_maxEdgeSpeed, args.size());
 	
 	T maxTimeStep = args.size()/WavePropagation::ADVECTION_A * .4f;
 
@@ -95,7 +95,7 @@ int main(int argc, char** argv)
 		t += maxTimeStep;
 
 		// Write new values
-		writer.write(t, q, args.size());
+		writer.write(t, q, wavePropagation.m_maxEdgeSpeed, args.size());
 	}
 
 	// Free allocated memory

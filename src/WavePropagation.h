@@ -72,16 +72,15 @@
  */
 class WavePropagation
 {
-private:
+public:
 	Q *m_q;
-	// TODO: I assume these are supposed to be Q as well
-	Q *m_uNetUpdatesLeft;
-	Q *m_uNetUpdatesRight;
+	Q *m_updatesLeft;
+	Q *m_updatesRight;
+	T *m_maxEdgeSpeed;
 	unsigned int m_size;
 	T m_cellSize;
 
 
-public:
 	/**
 	 * @param size Domain size (= number of cells) without ghost cells
 	 * @param cellSize Size of one cell
@@ -92,15 +91,17 @@ public:
 		  m_cellSize(cellSize)
 	{
 		// Allocate net updates
-		m_uNetUpdatesLeft = new Q[size+1];
-		m_uNetUpdatesRight = new Q[size+1];
+		m_updatesLeft = new Q[size+1];
+		m_updatesRight = new Q[size+1];
+		m_maxEdgeSpeed = new T[size+1];
 	}
 
 	~WavePropagation()
 	{
 		// Free allocated memory
-		delete [] m_uNetUpdatesLeft;
-		delete [] m_uNetUpdatesRight;
+		delete [] m_updatesLeft;
+		delete [] m_updatesRight;
+    delete [] m_maxEdgeSpeed;
 	}
 
 	/**
@@ -135,7 +136,7 @@ public:
 	 */
 
 	void LaxFriedrichsFlux(Q q_l, Q q_r, T dt, T dx,
-                         Q& uNetUpdatesLeft, Q& uNetUpdatesRight, T& maxEdgeSpeed);
+                         Q& updatesLeft, Q& updatesRight, T& maxEdgeSpeed);
 
 	/**
 	 * Flux function for the advection equation

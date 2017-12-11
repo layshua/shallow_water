@@ -6,8 +6,8 @@ build:
 	scons
 
 run:
-	cd output; ../build/ADV1D
+	cd output; ../build/ADV1D -t 400
 
 show:
-	paraview --state=plot.pvsm
-	#paraview --data=output/adv1d_..vtr
+	#paraview --state=plot.pvsm
+	paraview --data=output/adv1d_..vtr

@@ -48,10 +48,11 @@ T WavePropagation::computeNumericalFluxes(T dt)
 
 		// Compute net updates
 		LaxFriedrichsFlux(m_q[i-1], m_q[i], dt, m_cellSize,
-                      m_uNetUpdatesLeft[i-1], m_uNetUpdatesRight[i-1],
+                      m_updatesLeft[i-1], m_updatesRight[i-1],
                       maxEdgeSpeed );
 
 		// Update maxWaveSpeed
+    m_maxEdgeSpeed[i] = maxEdgeSpeed;
 		if (maxEdgeSpeed > maxWaveSpeed){
 		  maxWaveSpeed = maxEdgeSpeed;
 		}
@@ -67,8 +68,8 @@ void WavePropagation::updateUnknowns(T dt)
 {
   // Loop over all inner cells see Leveque p229 eq. (12.5)
    for (unsigned int i = 1; i < m_size+1; i++) {
-     m_q[i].h -=  dt/m_cellSize * (m_uNetUpdatesRight[i].h + m_uNetUpdatesLeft[i-1].h);
-     m_q[i].hu -=  dt/m_cellSize * (m_uNetUpdatesRight[i].hu + m_uNetUpdatesLeft[i-1].hu);
+     m_q[i].h -=  dt/m_cellSize * (m_updatesRight[i].h + m_updatesLeft[i-1].h);
+     m_q[i].hu -=  dt/m_cellSize * (m_updatesRight[i].hu + m_updatesLeft[i-1].hu);
   }
 }
 
@@ -97,26 +98,38 @@ Q f_shallowwater(Q q, T& maxEdgeSpeed) {
   const T G = 1;  // To be compatible with picture on Ch 13, p. 257
   T dh = q.hu;
   T dhu = q.hu*q.hu/q.h + 0.5*G*q.h*q.h;
-  maxEdgeSpeed = std::max(q.hu/q.h - sqrt(G*q.h), q.hu/q.h + sqrt(G*q.h));
+  maxEdgeSpeed = std::max(fabs(q.hu/q.h - sqrt(G*q.h)),
+                          fabs(q.hu/q.h + sqrt(G*q.h)));
   return {dh, dhu};
 }
 
 // See Leveque p. 234 eq 12.15
 void WavePropagation::LaxFriedrichsFlux(Q q_l, Q q_r, T dt, T dx,
-                                        Q& uNetUpdatesLeft,
-                                        Q& uNetUpdatesRight,
+                                        Q& updatesLeft,
+                                        Q& updatesRight,
                                         T& maxEdgeSpeed)
 {
 
-  Q flux_l = f_shallowwater(q_l, maxEdgeSpeed);
-  Q flux_r = f_shallowwater(q_r, maxEdgeSpeed);
-  T a = dx/dt;
+  T leftEdgeSpeed;
+  T rightEdgeSpeed;
 
-  //std::cout << maxEdgeSpeed << std::endl;
+  Q flux_l = f_shallowwater(q_l, leftEdgeSpeed);
+  Q flux_r = f_shallowwater(q_r, rightEdgeSpeed);
 
-  uNetUpdatesRight.h  = 0.5*((flux_r.h - flux_l.h) - a*(q_r.h - q_l.h));
-  uNetUpdatesRight.hu = 0.5*((flux_r.hu - flux_l.hu) - a*(q_r.hu - q_l.hu));
-  uNetUpdatesLeft.h   = 0.5*((flux_r.h - flux_l.h) + a*(q_r.h - q_l.h));
-  uNetUpdatesLeft.hu  = 0.5*((flux_r.hu - flux_l.hu) + a*(q_r.hu - q_l.hu));
+  maxEdgeSpeed = std::max(leftEdgeSpeed, rightEdgeSpeed);
+  T a;
+  if (maxEdgeSpeed >= dx/dt) {
+    std::cout << "WARNING: maxEdgeSpeed >= dx/dt!!! dx/dt=" << dx/dt
+              << ", maxEdgeSpeed=" << maxEdgeSpeed << std::endl;
+    a = dx/dt;
+  }
+  else {
+    a = maxEdgeSpeed;
+  }
+
+  updatesRight.h  = 0.5*((flux_r.h - flux_l.h) - a*(q_r.h - q_l.h));
+  updatesRight.hu = 0.5*((flux_r.hu - flux_l.hu) - a*(q_r.hu - q_l.hu));
+  updatesLeft.h   = 0.5*((flux_r.h - flux_l.h) + a*(q_r.h - q_l.h));
+  updatesLeft.hu  = 0.5*((flux_r.hu - flux_l.hu) + a*(q_r.hu - q_l.hu));
 }
 
