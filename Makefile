@@ -6,7 +6,7 @@ build:
 	scons
 
 run:
-	cd output; ../build/ADV1D -t 400
+	cd output; ../build/ADV1D -t 800 -s 1000
 
 show:
 	#paraview --state=plot.pvsm

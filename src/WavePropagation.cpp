@@ -59,7 +59,15 @@ T WavePropagation::computeNumericalFluxes(T dt)
 	}
 
 	// Compute CFL condition
-	T maxTimeStep = m_cellSize/maxWaveSpeed * .4f;
+	T maxTimeStep = m_cellSize/maxWaveSpeed;
+  // This approach is doomed. We use a different dt
+  // 1. Calculate max wavespeed
+  // 2. Then, determine dt
+  // 3. Then, use to determe LxF a
+  // 4. Update
+  // 2D computation.
+  // Set weight = 1.0
+  // Trigger an instability when timestep is too big (by two waves colliding)
 
 	return maxTimeStep;
 }
@@ -124,7 +132,8 @@ void WavePropagation::LaxFriedrichsFlux(Q q_l, Q q_r, T dt, T dx,
     a = dx/dt;
   }
   else {
-    a = maxEdgeSpeed;
+    //a = maxEdgeSpeed;
+    a = dx/dt;
   }
 
   updatesRight.h  = 0.5*((flux_r.h - flux_l.h) - a*(q_r.h - q_l.h));
