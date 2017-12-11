@@ -63,7 +63,7 @@ public:
 	{
 	  T mid = m_size/2.0;
 	  T pos_rel = (mid-pos)/(m_size/10.0);
-	  T h = exp(-(pos_rel)*(pos_rel));
+	  T h = 0.5 * exp(-(pos_rel)*(pos_rel)) + 1;
 	  return {h, 0};
 	}
 
