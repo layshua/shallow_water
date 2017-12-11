@@ -38,6 +38,7 @@
 #include "types.h"
 #include "WavePropagation.h"
 #include "scenarios/gaussian.h"
+#include "scenarios/breakingdam.h"
 #include "writer/VtkWriter.h"
 #include "tools/args.h"
 
@@ -49,7 +50,8 @@ int main(int argc, char** argv)
 	tools::Args args(argc, argv);
 
 	// Scenario
-	scenarios::Gaussian scenario(args.size());
+	scenarios::BreakingDam scenario(args.size());
+	//scenarios::Gaussian scenario(args.size());
 
 	// Allocate memory across spatial domain
 	Q *q = new Q[args.size()+2];
@@ -82,8 +84,8 @@ int main(int argc, char** argv)
 				<< " at time " << t << std::endl;
 
 		// Update boundaries
-		//		wavePropagation.setOutflowBoundaryConditions();
-		wavePropagation.setPeriodicBoundaryConditions();		
+		wavePropagation.setOutflowBoundaryConditions();
+		//wavePropagation.setPeriodicBoundaryConditions();		
 
 		// Compute numerical flux on each edge
 		maxTimeStep = wavePropagation.computeNumericalFluxes(maxTimeStep);
