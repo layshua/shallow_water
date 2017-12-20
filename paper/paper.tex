@@ -1,0 +1,185 @@
+\input{paper-layout}
+\input{german}
+\pagestyle{empty}  % Skip page number on first page
+
+\hyphenation{}
+
+\begin{document}
+
+\title{Solving the Shallow Water Equations\\ using Finite Volumes and Lax-Friedrichs}
+
+\specialpapernotice{Fundamentals of Wave Simulation Seminar}
+
+\author{
+\authorblockN{Nathan W Brei}
+\authorblockA{Fakultät für Informatik\\Technische Universität München\\
+Email: brei@in.tum.de} 
+%\and
+%\authorblockN{}
+%\authorblockA{}
+}
+
+\maketitle
+
+% Re-enable page number on first page
+%\thispagestyle{plain}
+
+\input{abstract}
+
+\begin{keywords}
+	Shallow water equations, Finite volumes, Lax-Friedrichs method, Rusanov, artificial viscosity, Julia
+\end{keywords}
+
+
+\section{Introduction}
+
+This paper has three aims. Firstly, it shall introduce the shallow water equations and describe how finite volume methods can be used to compute a numerical solution. Secondly, it shall explore two such methods, the Lax-Friedrich and the Local-Lax-Friedrich (Rusanov) methods, describing them conceptually via equations and concretely via code snippets. The code is organized to map to the concepts as cleanly as possible and to leverage higher-order programming techniques and patterns. Finally, the code shall be used to generate solutions to several model problems, which can be examined in order to gain insight into the concept and consequences of numerical viscosity. 
+
+\section{Shallow Water Equations}
+
+
+The shallow water equations are a system of hyperbolic partial differential equations which are effective at describing the behavior of tsunamis and overland flooding. They are derived from the general Navier-Stokes equations by making the following assumptions:
+
+\begin{itemize}
+\item In the 1-D case, the flow is in a channel of unit width
+\item Horizontal velocity $u(x)$ across any cross section $x$ is constant
+\item Vertical velocity $v(x)$ is small (but not zero) and falls out of the equations
+\item Pressure is dominated by hydrostatics: $p=\frac{1}{2}\rho gh^2$
+\end{itemize}
+
+The 1D equations are as follows:
+
+\[
+\begin{bmatrix}h \\ hu \end{bmatrix}_t + \begin{bmatrix}hu \\ hu^2 + \frac{1}{2}gh^2\end{bmatrix}_x = 0 \]
+
+This paper chooses the state variables $q := (h, hu)$ to form a state space, $Q$. This can be expressed in code as follows:
+\begin{verbatim}
+const Float = Float64
+
+mutable struct Q
+    h :: Float
+    hu :: Float
+end
+\end{verbatim}
+
+
+There are several tradeoffs associated with this representation of state space. In performance-critical code, the choice of data structure is driven primarily by memory access patterns, which are not considered here. The principal benefit of this representation is that it moves some of the semantics of the problem domain into the type system, which would permit future extensions such as awareness of physical units. On the other hand, this representation is unaware of the fact that $Q$ forms a vector space, resulting in duplicated, messier, and possibly less efficient code. 
+
+This latter problem may be resolved quickly, as Julia uses \emph{multimethods}. Multimethods 
+
+\begin{verbatim}
+import Base.+
+import Base.-
+import Base.*
+
+function +(lhs::Q, rhs::Q)
+    Q(lhs.h + rhs.h, lhs.hu + rhs.hu)
+end
+
+function -(lhs::Q, rhs::Q)
+    Q(lhs.h - rhs.h, lhs.hu - rhs.hu)
+end
+
+function *(a::Real, q::Q)
+    Q(a*q.h, a*q.hu)
+end
+\end{verbatim}
+
+The shallow water equations may be defined over this state space in an abstract way. Because they match the pattern of a general conservation law, 
+
+\[q_t(x,t) + f(q(x,t))_x = 0\]
+
+their dynamics may be captured as a flux function, $f$, such that 
+
+\[f : (q_1, q_2) \mapsto \begin{bmatrix} q_2\\ q_2^2/q_1 + \frac{1}{2}gq_1^2\end{bmatrix}\]
+
+This flux function may be expressed in Julia directly:
+
+\begin{verbatim}
+const G = 9.81f0
+function f(q :: Q)
+    Q(q.hu, q.hu^2/q.h + 0.5*G*q.h^2)
+end
+\end{verbatim}
+
+The shallow water equations enter the numerical code in only one other place, the max wave speed function. The physical wave speeds are given by the eigenvalues of the flux Jacobian  
+
+\[f'(q) = \begin{bmatrix}0 & 1 \\ -u^2 + gh & 2u \end{bmatrix}\]
+
+\[\lambda_{max} = \max\ \lvert u \pm \sqrt{gh} \rvert \]
+
+
+\begin{verbatim}
+function wavespeed(q :: Q)
+    u = q.hu / q.h
+    c = sqrt(G * q.h)
+    max(abs(u-c), abs(u+c))
+end
+\end{verbatim}
+
+
+
+
+
+\subsection{Unterkapitel}
+
+blabla mit drei Quellenangaben\cite{ietf-ipfix-protocol,snoeren2001hash,belenky2003ip}
+
+\begin{figure}[h]%
+ 	\begin{center}%
+ 		\includegraphics[scale=0.1]{figure1.png}%
+ 		\caption{Baum}\label{fig:baum}%
+ 	\end{center}%
+\end{figure}
+
+\begin{table}[h]%
+ 	\begin{center}%
+		\caption{Beispieltabelle}\label{tab:example}%
+	 	\begin{tabular}{c|c}%
+ 			Spalte1 & Spalte2\\
+ 			\hline
+ 			0 & 1\\
+ 		\end{tabular}%
+ 	\end{center}%
+\end{table}
+
+%\input{section2}
+
+\input{conclusion}
+
+%\section*{Acknowledgment}
+%\addcontentsline{toc}{section}{Acknowledgment}
+
+% trigger a \newpage just before the given reference
+% number - used to balance the columns on the last page
+% adjust value as needed - may need to be readjusted if
+% the document is modified later
+%\IEEEtriggeratref{8}
+% The "triggered" command can be changed if desired:
+%\IEEEtriggercmd{\enlargethispage{-5in}}
+
+% references section
+% NOTE: BibTeX documentation can be easily obtained at:
+% http://www.ctan.org/tex-archive/biblio/bibtex/contrib/doc/
+
+% can use a bibliography generated by BibTeX as a .bbl file
+% standard IEEE bibliography style from:
+% http://www.ctan.org/tex-archive/macros/latex/contrib/supported/IEEEtran/bibtex
+\bibliographystyle{IEEEtran}
+% argument is your BibTeX string definitions and bibliography database(s)
+\bibliography{IEEEabrv,references}
+%
+% <OR> manually copy in the resultant .bbl file
+% set second argument of \begin to the number of references
+% (used to reserve space for the reference number labels box)
+%\begin{thebibliography}{1}
+%
+%\bibitem{ref:kopka}
+%H.~Kopka and P.~W. Daly, \emph{A Guide to {\LaTeX}}, 3rd~ed.\hskip 1em plus
+%  0.5em minus 0.4em\relax Harlow, England: Addison-Wesley, 1999.
+%
+%\end{thebibliography}
+
+\end{document}
+
+
