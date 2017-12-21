@@ -25,11 +25,11 @@ Email: brei@in.tum.de}
 % Re-enable page number on first page
 %\thispagestyle{plain}
 
-\input{abstract}
+%\input{abstract}
 
-\begin{keywords}
-	Shallow water equations, Finite volumes, Lax-Friedrichs method, Rusanov, artificial viscosity, Julia
-\end{keywords}
+%\begin{keywords}
+%	Shallow water equations, Finite volumes, Lax-Friedrichs method, Rusanov, artificial viscosity, Julia
+%\end{keywords}
 
 
 \section{Introduction}
@@ -39,7 +39,7 @@ This paper has three aims. Firstly, it shall introduce the shallow water equatio
 \section{Shallow Water Equations}
 
 
-The shallow water equations are a system of hyperbolic partial differential equations which are effective at describing the behavior of tsunamis and overland flooding. They are derived from the general Navier-Stokes equations by making the following assumptions:
+The shallow water equations are a system of hyperbolic partial differential equations which are effective at describing the behavior of tsunamis and overland flows.\cite{delestre:hal-00932234} They are derived from the general Navier-Stokes equations by making the following assumptions:
 
 \begin{itemize}
 \item In the 1-D case, the flow is in a channel of unit width
@@ -66,7 +66,7 @@ end
 
 There are several tradeoffs associated with this representation of state space. In performance-critical code, the choice of data structure is driven primarily by memory access patterns, which are not considered here. The principal benefit of this representation is that it moves some of the semantics of the problem domain into the type system, which would permit future extensions such as awareness of physical units. On the other hand, this representation is unaware of the fact that $Q$ forms a vector space, resulting in duplicated, messier, and possibly less efficient code. 
 
-This latter problem may be resolved quickly, thanks to Julia's type system. 
+This latter problem may be resolved quickly, thanks to Julia's type system.\cite{doi:10.1137/141000671} 
 
 \begin{verbatim}
 import Base.+
@@ -124,7 +124,7 @@ end
 
 \section{Finite Volumes}
 
-Finite volumes are a family of numerical methods which are well suited for computing an approximate solution to hyperbolic systems such as the shallow water equations. They have two main advantages over other methods, such as finite differences and finite elements. Firstly, they automatically conserve physical quantities $q$. Secondly, they can capture discontinuities, such as shocks, which is considerably simpler than explicitly tracking them. The main downside is that the profile of the shock will be smeared by the spatial discretization.
+Finite volumes are a family of numerical methods which are well suited for computing an approximate solution to hyperbolic systems such as the shallow water equations.\cite{leveque2002finite} They have two main advantages over other methods, such as finite differences and finite elements. Firstly, they automatically conserve physical quantities $q$. Secondly, they can capture discontinuities, such as shocks, which is considerably simpler than explicitly tracking them. The main downside is that the profile of the shock will be smeared by the spatial discretization.
 
 The starting point is to recast the conservation equations in integral form:
 
@@ -149,7 +149,7 @@ Rearranging leads to a general update scheme:
 
 \[Q_{i}^{n+1} = Q_{i}^{n} - \frac{\Delta t}{\Delta x}(F_{i+1/2}^{n} - F_{i-1/2}^{n}) \]
 
-Ideally, the flux function can be calculated using only the state in the adjacent cells, which implies a fully discrete method:
+Ideally, the flux function can be calculated using only the state in the adjacent cells, which yields a fully discrete method:
 
 \[F_{i+1/2}^{n} = \mathcal{F}(Q_{i}^n, Q_{i+1}^n)\]
 
@@ -166,8 +166,6 @@ Let us now consider a clean organizing principle for the code.
 Thanks to parametric polymorphism, the spatial domain can be quickly defined as a type alias \verb!QS = Array{Q,1}! This states that spatial variables are implemented as a 1-dimensional array with inner type \verb!Q! as defined above. There is an additional constraint in that there is a ghost cell on either side, so the `true' spatial domain ranges over the indices $[2, n_{cells}+1]$. 
 
 Two improvements are possible. Firstly, by using \verb!OffsetArray!s instead of regular \verb!Array!s, the indexes can be cheaply translated to $[1, n_{cells}]$. Secondly, the type QS can be parameterized by the number of cells, \verb!QS{ncells}!, which would ensure that compatibly sized arrays are always used, that ghost cells always exist, and that the array sizes are known at compile time, allowing for additional compiler optimizations. Though potentially useful for larger projects, these features would introduce more complexity than they conceal.
-
-
 
 \begin{itemize}
 	\item Flux function f
@@ -209,7 +207,7 @@ Having built up a skeleton of a finite volume method, it is finally time to furn
 
 \[Q_i^{n+1} = Q_i^n - \frac{\Delta t}{2 \Delta x}\big[f(Q_{i+1}^n - f(Q_{i-1}^n))] \]
 
-This yields a forward-time, centered-space finite difference scheme. Unfortunately a von Neumann analysis shows that it is always unstable. The Lax-Friedrichs method simply modifies this scheme by changing the time difference to use a value of $Q_i^n$ averaged from the neighboring cells: 
+This yields a forward-time, centered-space finite difference scheme. Unfortunately a von Neumann analysis shows that it is always unstable.\cite{strang2007computational} The Lax-Friedrichs method simply modifies this scheme by changing the time difference to use a value of $Q_i^n$ averaged from the neighboring cells: 
 
 \[Q_i^n \approx \frac{1}{2}(Q_{i-1}^n + Q_{i+1}^n)\]
 
@@ -347,29 +345,40 @@ function llxf!(qs::QS, Fl::QS, Fr::QS,
 end
 \end{verbatim}
 
-\section{Comparison of results}
+The Local Lax-Friedrichs method does not entirely break the coupling between dissipation and $\mu$, but it strongly reduces it, as depicted in Figure~\ref{fig:llxf_breakingdam_mu}. This experiment used the exact same parameters as Figure~\ref{fig:lxf_breakingdam_mu}, only for LLxF. 
 \begin{figure}[h]%
- 	\begin{center}%
- 		\includegraphics[scale=0.6]{../plots/lxf_llxf_breakingdam.png}%
- 		\caption{Baum}\label{fig:baum}%
- 	\end{center}%
-\end{figure}
-\begin{figure}[h]%
- 	\begin{center}%
- 		\includegraphics[scale=0.6]{../plots/lxf_llxf_gaussian.png}%
- 		\caption{Baum}\label{fig:baum}%
- 	\end{center}%
+    \begin{center}%
+        \includegraphics[scale=0.6]{../plots/llxf_breakingdam_mu.png}%
+        \caption{Baum}\label{fig:llxf_breakingdam_mu}%
+    \end{center}%
 \end{figure}
 
-\begin{itemize}
-\item For Lax-Friedrich, $\mu$ affects dissipation
-\item For Local-Lax-Friedrich, $\mu$ affects dissipation much less
-\item Lax-Friedrich approaches Local-Lax-Friedrich as $\mu \to 1.0$
-\item Both methods are unstable for $\mu > 1.0$ due to CFL violation
-\end{itemize}
+\section{LxF vs LLxF Comparison}
+
+\begin{figure}[h]%
+    \begin{center}%
+        \includegraphics[scale=0.6]{../plots/lxf_llxf_breakingdam.png}%
+        \caption{Baum}\label{fig:cmp_breakingdam}%
+    \end{center}%
+\end{figure}
+\begin{figure}[h]%
+    \begin{center}%
+        \includegraphics[scale=0.6]{../plots/lxf_llxf_gaussian.png}%
+        \caption{Baum}\label{fig:cmp_gaussian}%
+    \end{center}%
+\end{figure}
+
+
+A final round of experiments were conducted to compare Lax-Friedrichs to Local Lax Friedrichs. These indicate that Local Lax-Friedrichs is decidedly less dissipative and more accurate. Figure~\ref{fig:cmp_breakingdam} shows the results of running LLxF with a middling $\mu=0.4$ against LxF with different $\mu$ for the breaking dam scenario.
+
+At $\mu=0.4$, the LLxF method performs only slightly worse than LxF at $\mu=1.0$. For any given choice of $\mu$, the LLxF reaches a better solution in the same number of timesteps. Unexpectedly, the quality of the solutions converge as $\mu \to 1.0$. On the other hand, LLxF requires additional work to calculate $a(x)$ for each cell, though the amount is small and linear in the number of cells.
+
+The stairstep oscillations observed in the breaking dam case for LxF are not present for LLxf. This is presumably because the value of $Q_i^n$ enters into the calculation of $Q_i^{n+1}$, albeit rather indirectly, via the max wavespeed $\lambda_{max}$ and then the cell-wise flux $F_{i+1/2}^n$. 
+
 
 \section{Conclusion}
 
+The Lax-Friedrichs method is a simple finite volume technique for solving the shallow water equations. Starting from the fundamentals, this paper built up a reference implementation which leverages features of Julia to achieve terseness and clarity not available in languages such as Matlab or C++. An abstract finite volume skeleton allows different numerical methods to be swapped in. Two variants were implemented, Lax-Friedrichs and Local Lax-Friedrichs. The former suffers from excessive numerical viscosity, which the latter largely remedies. The causes and consequences of this viscosity were discussed with respect to two model problems, a Gaussian perturbation and a breaking dam. It is the author's hope that this document may serve as a concise guide to students exploring this material in the future. 
 
 
 %\input{conclusion}
@@ -394,7 +403,7 @@ end
 % http://www.ctan.org/tex-archive/macros/latex/contrib/supported/IEEEtran/bibtex
 \bibliographystyle{IEEEtran}
 % argument is your BibTeX string definitions and bibliography database(s)
-\bibliography{IEEEabrv,references}
+\bibliography{IEEEabrv,../references}
 %
 % <OR> manually copy in the resultant .bbl file
 % set second argument of \begin to the number of references

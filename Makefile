@@ -17,6 +17,8 @@ paper:
 
 paper-verbose:
 	cd paper; pdflatex -shell-escape -output-directory=build paper.tex
+	cd paper/build; bibtex paper
+	cd paper; pdflatex -shell-escape -output-directory=build paper.tex
 
 paper-autorebuild:
 	fswatch -0 paper | xargs -0 -n 1 make paper
