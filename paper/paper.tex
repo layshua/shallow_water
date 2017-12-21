@@ -1,5 +1,6 @@
 \input{paper-layout}
 \input{german}
+\usepackage{amsmath}
 \pagestyle{empty}  % Skip page number on first page
 
 \hyphenation{}
@@ -65,7 +66,7 @@ end
 
 There are several tradeoffs associated with this representation of state space. In performance-critical code, the choice of data structure is driven primarily by memory access patterns, which are not considered here. The principal benefit of this representation is that it moves some of the semantics of the problem domain into the type system, which would permit future extensions such as awareness of physical units. On the other hand, this representation is unaware of the fact that $Q$ forms a vector space, resulting in duplicated, messier, and possibly less efficient code. 
 
-This latter problem may be resolved quickly, as Julia uses \emph{multimethods}. Multimethods 
+This latter problem may be resolved quickly, thanks to Julia's type system. 
 
 \begin{verbatim}
 import Base.+
@@ -102,12 +103,15 @@ function f(q :: Q)
 end
 \end{verbatim}
 
-The shallow water equations enter the numerical code in only one other place, the max wave speed function. The physical wave speeds are given by the eigenvalues of the flux Jacobian  
+The shallow water equations enter the numerical code in only one other place, the max wave speed function. The physical speeds of wave propagation are given by the eigenvalues of the flux Jacobian, 
 
 \[f'(q) = \begin{bmatrix}0 & 1 \\ -u^2 + gh & 2u \end{bmatrix}\]
 
+and the absolute value of the dominating eigenvalue, 
+
 \[\lambda_{max} = \max\ \lvert u \pm \sqrt{gh} \rvert \]
 
+will be shown to play an important role in ensuring numerical stability. In Julia it is calculated as:
 
 \begin{verbatim}
 function wavespeed(q :: Q)
@@ -118,34 +122,257 @@ end
 \end{verbatim}
 
 
+\section{Finite Volumes}
+
+Finite volumes are a family of numerical methods which are well suited for computing an approximate solution to hyperbolic systems such as the shallow water equations. They have two main advantages over other methods, such as finite differences and finite elements. Firstly, they automatically conserve physical quantities $q$. Secondly, they can capture discontinuities, such as shocks, which is considerably simpler than explicitly tracking them. The main downside is that the profile of the shock will be smeared by the spatial discretization.
+
+The starting point is to recast the conservation equations in integral form:
+
+\[\frac{d}{dt} \int_{C_i} q(x,t) dx = f(q(x_{i-1/2},t)) - f(q(x_{1+1/2},t))\]
+
+Since these equations hold for an arbitrary control volume, it makes sense to partition the spatial domain into cells. For simplicity these cells are assumed to be regular, although the equations hold just as well over an unstructured mesh. 
+
+\[C_i := (x_{i-1/2}, x_{i+1/2})\] 
+
+After integrating with respect to time, each term takes on a physical significance directly relevant to our model:
+
+\begin{multline}
+\int_{C_i} q(x,t_{n+1})dx - \int_{C_i} q(x,t_n) dx = \\ \int_{t_n}^{t_{n+1}} f(q(x_{i-1/2},t))dt - \int_{t_n}^{t_{n+1}} f(q(x_{i+1/2},t))dt
+\end{multline}
+
+\begin{itemize}
+\item Let $Q_{i}^{n} \approx \frac{1}{\Delta x} \int_{C_i} q(x,t_n) dx $ be the approximate average $q$ in cell $i$ at time $n$.
+
+\item Let $F_{i+1/2}^{n} \approx \frac{1}{\Delta t} \int_{t_n}^{t_{n+1}} f(q(x_{i+1/2},t))dt$ be the approximate average flux $f$ from cell $i$ into $i+1$.
+\end{itemize}
+Rearranging leads to a general update scheme:
+
+\[Q_{i}^{n+1} = Q_{i}^{n} - \frac{\Delta t}{\Delta x}(F_{i+1/2}^{n} - F_{i-1/2}^{n}) \]
+
+Ideally, the flux function can be calculated using only the state in the adjacent cells, which implies a fully discrete method:
+
+\[F_{i+1/2}^{n} = \mathcal{F}(Q_{i}^n, Q_{i+1}^n)\]
+
+Taking a step back, it is clear that these also fall under the umbrella of finite difference methods. However, they have the additional property of being conservative: Even if the computed fluxes are rather inaccurate, the sum of fluxes over the spatial domain will vary only according to boundary conditions. 
+
+The desired properties of finite volumes hold for any choice of $F_{i+1/2}^{n}$, as long as the resulting method is consistent and stable. Similarly, they hold for any choice of hyperbolic PDE, which is abstracted away as a state space $Q_i$, a pointwise flux $f(Q_i)$ and max wavespeed $\lambda_{max}(Q_i)$. Thus, the implementation may be organized into an abstract finite volume method which is parameterized with different strategies.
+
+
+\section{Code architecture}
+
+Let us now consider a clean organizing principle for the code. 
+
+
+Thanks to parametric polymorphism, the spatial domain can be quickly defined as a type alias \verb!QS = Array{Q,1}! This states that spatial variables are implemented as a 1-dimensional array with inner type \verb!Q! as defined above. There is an additional constraint in that there is a ghost cell on either side, so the `true' spatial domain ranges over the indices $[2, n_{cells}+1]$. 
+
+Two improvements are possible. Firstly, by using \verb!OffsetArray!s instead of regular \verb!Array!s, the indexes can be cheaply translated to $[1, n_{cells}]$. Secondly, the type QS can be parameterized by the number of cells, \verb!QS{ncells}!, which would ensure that compatibly sized arrays are always used, that ghost cells always exist, and that the array sizes are known at compile time, allowing for additional compiler optimizations. Though potentially useful for larger projects, these features would introduce more complexity than they conceal.
 
 
 
-\subsection{Unterkapitel}
+\begin{itemize}
+	\item Flux function f
+	\item Initial conditions
+	\item Boundary conditions
+	\item Timestep size
+\end{itemize}
 
-blabla mit drei Quellenangaben\cite{ietf-ipfix-protocol,snoeren2001hash,belenky2003ip}
+In traditional object-oriented programming, this decoupling is usually achieved via the Strategy Pattern. Because Julia has first-class functions (lambdas), it can be achieved much more tersely. 
+
+
+\section{Numerical Stability}
+
+In order to ensure numerical stability, a necessary (but not sufficient) condition that must be met is the \emph{CFL condition}. For a hyperbolic system, information propagates through the spatial domain at finite speeds. Since the system evolves by exchanging fluxes between neighboring cells, it is intuitively necessary that the timestep size be small enough that the fluxes don't travel further than one cell per timestep. More precisely, the \emph{numerical domain of dependence} (the set of cells whose old values factor in to the new value of each cell) must contain the \emph{physical domain of dependence}, the region of space from which waves propagated. This is captured as a relation between cell size, timestep size, and wave speed, called the Courant number:
+
+\[ \nu := \Bigg\lvert\frac{\bar{u}\Delta t}{\Delta x} \Bigg\rvert = \frac{\Delta t}{\Delta x} \lvert \lambda_{max} \rvert  \leq 1 \]
+
+Because this code uses the same timestep size for all cells, the maximum wave speed must be calculated across the entire spatial domain for each timestep iteration. The maximum wavespeed calculated from the flux Jacobian is exact only in the small-perturbation case, so an additional correction factor, $\mu$, scales the timestep down. Thus the experimenter has two knobs for balancing speed, accuracy, and stability: The spatial discretization $\Delta x$ and the timestep correction $\mu$.
+
+In Julia, the CFL condition is encoded as follows. One useful feature is the function chain operator \verb!|>!, which aids in readability. 
+
+\begin{verbatim}
+function cfl_dt(qs::QS, dx::Float, mu::Float)
+    lambda = map(wavespeed,qs) |> maximum
+    dx / lambda * mu
+end
+\end{verbatim}
+
+
+\section{Model Problems}
+
+
+
+\section{The Lax-Friedrichs Method}
+
+Having built up a skeleton of a finite volume method, it is finally time to furnish the most essential missing piece, the cell-wise flux function. The most obvious choice of $F$ is simply the average of the fluxes at the center of either cell. 
+
+\[ F_{i+1/2} = \frac{1}{2}\big[f(Q_{i} + f(Q_{i+1})\big] \]
+
+\[Q_i^{n+1} = Q_i^n - \frac{\Delta t}{2 \Delta x}\big[f(Q_{i+1}^n - f(Q_{i-1}^n))] \]
+
+This yields a forward-time, centered-space finite difference scheme. Unfortunately a von Neumann analysis shows that it is always unstable. The Lax-Friedrichs method simply modifies this scheme by changing the time difference to use a value of $Q_i^n$ averaged from the neighboring cells: 
+
+\[Q_i^n \approx \frac{1}{2}(Q_{i-1}^n + Q_{i+1}^n)\]
+
+The resulting update scheme becomes: 
+
+\[ Q_i^{n+1} = \frac{1}{2}\Big[Q_{i-1}^n + Q_{i+1}^n\Big] - \frac{\Delta t}{2 \Delta x} \Big[f(Q_{i+1}^n) - f(Q_{i-1}^n)\Big]\]
+
+which may be rearranged to yield a cell-wise flux function:
+
+\[ F_{i+1/2} = \frac{1}{2} \Big[ f(Q_{i+1}) + f(Q_{i}) - \frac{\Delta x}{\Delta t}(Q_{i+1} - Q_{i})\Big] \]
+
+
+
+This can be encoded as a function 
+* Input:  Buffers for $q(x), F_l(x), F_r(x)$, cell and timestep sizes
+* Output: Updated inter-cell flux buffers
+
+
+\begin{verbatim}
+function lxf!(qs::QS, Fl::QS, Fr::QS, 
+			  ncells::Int, 
+              dx::Float, dt::Float)
+    
+    a = dx/dt
+    for x = 2:ncells+2
+        ql,qr = qs[x-1], qs[x]
+        fl,fr = f(ql), f(qr)        
+
+        Fr[x-1] = 0.5*((fr-fl) - a*(qr - ql))
+        Fl[x-1] = 0.5*((fr-fl) + a*(qr - ql))
+    end
+end
+\end{verbatim}
+
+\section{Lax-Friedrichs Results}
+
+The Lax-Friedrichs method implemented was run against two model problems. The first used a Gaussian perturbation for its initial condition with reflecting boundary conditions. The second used a breaking dam initial condition with outflow boundary conditions. Two experiments were run in order to examine the behavior of the knobs $n_{cells}$  and $\mu$ independently. These are depicted in Figures~\ref{fig:lxf_gaussian_ncells},~\ref{fig:lxf_breakingdam_ncells}, and~\ref{fig:lxf_breakingdam_mu}. 
 
 \begin{figure}[h]%
  	\begin{center}%
- 		\includegraphics[scale=0.1]{figure1.png}%
+ 		\includegraphics[scale=0.6]{../plots/lxf_gaussian_ncells.png}%
+ 		\caption{LxF performance relative to $n_{cells}$}\label{fig:lxf_gaussian_ncells}%
+ 	\end{center}%
+\end{figure}
+
+\begin{figure}[h]%
+ 	\begin{center}%
+ 		\includegraphics[scale=0.6]{../plots/lxf_breakingdam_ncells.png}%
+ 		\caption{LxF performance relative to $n_{cells}$}\label{fig:lxf_breakingdam_ncells}%
+ 	\end{center}%
+\end{figure}
+
+\begin{figure}[h]%
+ 	\begin{center}%
+ 		\includegraphics[scale=0.6]{../plots/lxf_breakingdam_mu.png}%
+ 		\caption{LxF performance relative to $\mu$}\label{fig:lxf_breakingdam_mu}%
+ 	\end{center}%
+\end{figure}
+
+The experiment depicted in Figure~\ref{fig:lxf_gaussian_ncells} is rather intuitive. A Gaussian perturbation propagates symmetrically across the spatial domain. As the spatial discretization is refined, a shock wave gradually emerges from each (previously symmetric) ripple. It should be noted that these shock waves are smeared across tens or hundreds of cells, far more than the finite volume method presumably requires. Furthermore, the crest is reduced and the troughs are filled in: Decreasing the spatial discretization appears to increase dissipation.
+
+Applying the same experiment to the breaking dam scenario, shown in Figure~\ref{fig:lxf_breakingdam_ncells} yields similar observations, with an unexpected twist. As the mesh becomes coarser, a nonphysical stairstep pattern emerges. This can be directly traced back to the update rule: $Q_i^{n+1}$ depends on $Q_{i+1}^n$ and $Q_{i-1}^n$, but not $Q_{i}^n$. As a result, the odd and even grid cells evolve independently from each other and any disparity between the two oscillates without dampening. Thus the stairstep pattern did not manifest in the Gaussian scenario because the initial condition was smooth. 
+
+The final experiment considers the effect of the timestep correction $\mu$. It uses a fine mesh in order to reduce the dissipation described previously. As defined earlier, $\mu$ is a constant factor which scales down the timestep in order to maintain stability even in the presence of large nonlinearities. However, the behavior shown is remarkably counterintuitive: As the timestep is decreased, the solution becomes more dissipative, and consequently less accurate. When $\mu=1.0$, the shock is crisp and almost vertical; when $\mu=0.1$, the shock is effectively lost. The next section shall explore the cause of this phenomenon by showing how viscous behavior can arise as a result of the numerical method used, rather than the underlying physical system.
+
+
+\section{Artificial Viscosity}
+
+The key idea behind artificial viscosity is that an approximate solution to a certain problem is oftentimes an exact solution to an approximation of that problem. The trick is to regard simple discretizatons of a PDE as being building blocks which can be assembled into more sophisticated (and correspondingly more approximate) discretizations. One can then map the sophisticated discretization directly back to a modified PDE. In the case of Lax-Friedrichs, the approximation chosen for the flux function is effectively adding a diffusive term to the shallow-water equations. 
+
+Suppose that the `pure' solution to the shallow water equations, $q_t + {f(q)}_x = 0$, corresponds to the naive flux function 
+
+\[F_{i+1/2} = \frac{1}{2} \Big[f(Q_{i+1} + f(Q_{i})\Big]\] 
+
+even though this is known to be unstable. Similarly, suppose that the `pure' solution to the diffusion equation, $q_t = \beta q_{xx}$, corresponds to the flux function 
+
+\[F_{i+1/2} = -\beta \frac{Q_{i+1} - Q_{i}}{\Delta x}\]
+
+This can be derived by a straightforward finite difference approximation. The Lax-Friedrichs flux function shown previously can be trivially rearranged as: 
+
+\[ F_{i+1/2} = \frac{1}{2} \Big[f(Q_{i}) + f(Q_{i+1})\Big] - \frac{\Delta x}{2\Delta t}\Big[Q_{i+1} - Q_{i}\Big] \]
+
+It is clear that this flux function pattern-matches the discretization of a different PDE:
+
+\[ q_t + f(q)_x = \frac{(\Delta x)^2}{2\Delta t} q_{xx} \]
+
+Thus the Lax-Friedrichs parameter $a = \frac{\Delta x}{\Delta t}$ controls the diffusion coefficient $\beta$ according to 
+
+\[\beta = \frac{(\Delta x)^2}{2\Delta t} = \frac{1}{2} a \Delta x \]
+
+This explains the two results described previously. Firstly, by taking $a$ as constant, and reducing the cell size $\Delta x \to 0$, it is clear that $\beta \to 0$ and the viscous term in the PDE vanishes. Thus the Lax-Friedrichs discretization remains consistent with the pure shallow-water equations.
+
+Secondly, reducing the timestep size $\Delta t$ increases $a$, which then increases $\beta$. This explains the counterintuitive phenomenon where the solution becomes increasingly dissipative, and hence less accurate, as the timestep size is decreased. This then raises the question of whether it is possible to decouple $\beta$ from $\Delta t$ while still maintaining a consistent and stable discretization. The method described in the following section mostly achieves this.
+
+
+\section{The Local-Lax-Friedrichs Method}
+
+Local-Lax-Friedrichs is a modification which consciously uses artificial viscosity in a clever way. In the basic Lax-Friedrichs, the viscosity parameter $a$ is a constant derived from the timestep $\Delta t$, which in turn is derived from the CFL condition. Although the timestep is contrained to be constant over the entire spatial domain (local time stepping is not considered in the scope of this paper), the viscosity is not. On the contrary, varying the viscosity over the spatial domain is advantageous: in regions with shocks and other discontinuities, the presence of viscosity helps ensure numerical stability, and in smooth regions, the lack of viscosity leads to a less dissipative and hence more accurate solution. 
+
+
+$a_{i-1/2} = \max(\lvert f'(q) \rvert) \ \forall q \in (Q_{i-1}, Q_{i})$
+
+
+Then $ F_{i-1/2} = \frac{1}{2}[f(Q_{i-1}) + f(Q_i) - a_{i-1/2}(Q_i - Q_{i-1})]$
+
+
+From the CFL condition, it is clear that this approach is strictly less viscous than basic Lax-Friedrichs:
+
+\[\lvert f'(q)\rvert \leq \frac{\Delta x}{\Delta t}\]
+
+
+\begin{figure}[h]%
+ 	\begin{center}%
+ 		\includegraphics[scale=0.6]{../plots/artificial_viscosity.png}%
+ 		\caption{Wavespeed over the spatial domain}\label{fig:artificial_viscosity}%
+ 	\end{center}%
+\end{figure}
+
+This is represented in code as follows. The flux 
+
+\begin{verbatim}
+function llxf!(qs::QS, Fl::QS, Fr::QS, 
+              ncells::Int, 
+              dx::Float, dt::Float)
+    
+    for x = 2:ncells+2
+        ql,qr = qs[x-1], qs[x]
+        fl,fr = f(ql), f(qr)
+
+        a = max(wavespeed(ql), wavespeed(qr))
+
+        Fr[x-1] = 0.5*((fr-fl) - a*(qr-ql))
+        Fl[x-1] = 0.5*((fr-fl) + a*(qr-ql))
+    end
+end
+\end{verbatim}
+
+\section{Comparison of results}
+\begin{figure}[h]%
+ 	\begin{center}%
+ 		\includegraphics[scale=0.6]{../plots/lxf_llxf_breakingdam.png}%
+ 		\caption{Baum}\label{fig:baum}%
+ 	\end{center}%
+\end{figure}
+\begin{figure}[h]%
+ 	\begin{center}%
+ 		\includegraphics[scale=0.6]{../plots/lxf_llxf_gaussian.png}%
  		\caption{Baum}\label{fig:baum}%
  	\end{center}%
 \end{figure}
 
-\begin{table}[h]%
- 	\begin{center}%
-		\caption{Beispieltabelle}\label{tab:example}%
-	 	\begin{tabular}{c|c}%
- 			Spalte1 & Spalte2\\
- 			\hline
- 			0 & 1\\
- 		\end{tabular}%
- 	\end{center}%
-\end{table}
+\begin{itemize}
+\item For Lax-Friedrich, $\mu$ affects dissipation
+\item For Local-Lax-Friedrich, $\mu$ affects dissipation much less
+\item Lax-Friedrich approaches Local-Lax-Friedrich as $\mu \to 1.0$
+\item Both methods are unstable for $\mu > 1.0$ due to CFL violation
+\end{itemize}
 
-%\input{section2}
+\section{Conclusion}
 
-\input{conclusion}
+
+
+%\input{conclusion}
 
 %\section*{Acknowledgment}
 %\addcontentsline{toc}{section}{Acknowledgment}

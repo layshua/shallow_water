@@ -3,14 +3,14 @@
 alles: build run show
 
 jupyterlatex:
-	jupyter nbconvert Paper.ipynb --to latex --output paper/paper.tex
+	jupyter nbconvert Paper.ipynb --to latex --output paper/jupyter-paper.tex
 
 jupytermarkdown:
 	jupyter nbconvert Paper.ipynb --to markdown --output paper/paper.md
-	pandoc -o paper/paper_from_md.tex --filter pandoc-minted paper/paper.md
+	pandoc -o paper/jupyter-paper.tex --filter pandoc-minted paper/paper.md
 
 jupyterverbose:
-	pdflatex -shell-escape -output-directory=build Paper.tex
+	pdflatex -shell-escape -output-directory=build jupyter-paper.tex
 
 paper:
 	cd paper; pdflatex -shell-escape -interaction=batchmode -halt-on-error -output-directory=build paper.tex
