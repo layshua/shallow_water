@@ -3,22 +3,39 @@
 \usepackage{tcolorbox}
 \tcbuselibrary{minted,skins}
 
-\newtcblisting{my_julia}[1][]{%
+% Patch to fix https://github.com/T-F-S/tcolorbox/issues/12
+\makeatletter
+\def\tcb@minted@input@listing#1#2#3#4{%
+  \edef\temp@a{#4}%
+  \ifx\temp@a\@empty%
+  \else%
+    \toks@=\expandafter{#4}%
+    \edef\tcb@temp{\noexpand\usemintedstyle{\the\toks@}}%
+    \tcb@temp%
+  \fi%
+  \toks@=\expandafter{#1}%
+  \edef\tcb@temp{\noexpand\inputminted[\the\toks@]}%
+  \IfFileExists{\minted@outputdir#3}%
+    {\tcb@temp{#2}{\minted@outputdir#3}}%
+    {\tcb@temp{#2}{#3}}%
+}
+\makeatother
+
+\newtcblisting{myjulia}{%
   listing engine=minted,
   minted language=julia,
-  minted options={breaklines,breakanywhere,fontsize=\scriptsize,gobble=8},
+  minted options={fontsize=\scriptsize,firstnumber=last,linenos},
   listing only,
   before skip=0pt,
   after skip=8pt,
   left skip=0pt,
   right skip=0pt,
   size=fbox,
-  sharp corners,
-  %colframe=white!75!black,
-  colframe=white,
+  rounded corners,
+  colframe=white!75!black,
   boxrule=0pt,
   frame hidden,
-  #1
+  width=\linewidth - 1em
 }
 
 
@@ -336,8 +353,8 @@ The Lax-Friedrichs method is a simple finite volume technique for solving the sh
 \bibliographystyle{IEEEtran}
 % argument is your BibTeX string definitions and bibliography database(s)
 \bibliography{IEEEabrv,../references}
-
-\input{appendix}
+\newpage
+\input{appendix3}
 
 %
 % <OR> manually copy in the resultant .bbl file

@@ -1,6 +1,7 @@
 \section{Appendix}
+\definecolor{bg}{rgb}{0.95,0.95,0.95}
 
-\begin{minted}[breaklines,breakanywhere,linenos, fontsize=\scriptsize]
+\begin{minted}[linenos,fontsize=\scriptsize,bgcolor=bg]
 {julia}
 
 const Float = Float64
@@ -10,7 +11,10 @@ mutable struct Q
     h :: Float
     hu :: Float
 end
+\end{minted}
 
+\begin{minted}[linenos,fontsize=\scriptsize,firstnumber=9,bgcolor=bg]
+{julia}
 # Make Q a vector space
 
 import Base.+, Base.-, Base.*
@@ -26,8 +30,10 @@ end
 function *(a::Real, q::Q)
     Q(a*q.h, a*q.hu)
 end
+\end{minted}
 
-
+\begin{minted}[linenos,fontsize=\scriptsize,firstnumber=26,bgcolor=bg]
+{julia}
 const G = 9.81f0
 
 "Shallow-water point-wise flux"
@@ -42,12 +48,16 @@ function wavespeed(q :: Q)
     max(abs(u-c), abs(u+c))
 end
 
+\end{minted}
+
+\begin{minted}[linenos,fontsize=\scriptsize,firstnumber=40,bgcolor=bg]
+{julia}
 "Spatial domain datatype"
 QS = Array{Q,1}
 
 "Finite volume skeleton"
 function run_experiment(stoptime, ncells::Int, 
-        choose_dt, compute_fluxes!, apply_bcs!, apply_ics)
+    choose_dt, compute_fluxes!, apply_bcs!, apply_ics)
 
     qs = apply_ics(ncells)
     Fl = Array{Q,1}(ncells+2)
@@ -68,7 +78,9 @@ function run_experiment(stoptime, ncells::Int,
     return (qs, currenttime, timesteps)
 end
 
-
+\end{minted}
+\begin{minted}[linenos,fontsize=\scriptsize,firstnumber=67,bgcolor=bg]
+{julia}
 # Kernels: (qs, Fl, Fr, ncells, dx, dt) -> nothing 
 
 "Lax-Friedrichs kernel"
@@ -84,7 +96,6 @@ function lxf!(qs::QS, Fl::QS, Fr::QS,
         Fl[x-1] = 0.5*((fr-fl) + a*(qr - ql))
     end
 end
-Helo
 
 \end{minted}
 \newpage

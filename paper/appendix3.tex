@@ -1,8 +1,8 @@
-\section{Appendix}
+\section{Appendix: Code Listing}
+\vspace{1em}
+\definecolor{bg}{rgb}{0.95,0.95,0.95}
 
-\begin{minted}[breaklines,breakanywhere,linenos, fontsize=\scriptsize]
-{julia}
-
+\begin{myjulia}
 const Float = Float64
 
 "State space datatype"
@@ -10,7 +10,9 @@ mutable struct Q
     h :: Float
     hu :: Float
 end
+\end{myjulia}
 
+\begin{myjulia}
 # Make Q a vector space
 
 import Base.+, Base.-, Base.*
@@ -26,10 +28,9 @@ end
 function *(a::Real, q::Q)
     Q(a*q.h, a*q.hu)
 end
+\end{myjulia}
 
-
-const G = 9.81f0
-
+\begin{myjulia}
 "Shallow-water point-wise flux"
 function f(q :: Q)
     Q(q.hu, q.hu^2/q.h + 0.5*G*q.h^2)
@@ -42,12 +43,15 @@ function wavespeed(q :: Q)
     max(abs(u-c), abs(u+c))
 end
 
+\end{myjulia}
+
+\begin{myjulia}
 "Spatial domain datatype"
 QS = Array{Q,1}
 
 "Finite volume skeleton"
 function run_experiment(stoptime, ncells::Int, 
-        choose_dt, compute_fluxes!, apply_bcs!, apply_ics)
+    choose_dt, compute_fluxes!, apply_bcs!, apply_ics)
 
     qs = apply_ics(ncells)
     Fl = Array{Q,1}(ncells+2)
@@ -68,8 +72,8 @@ function run_experiment(stoptime, ncells::Int,
     return (qs, currenttime, timesteps)
 end
 
-
-# Kernels: (qs, Fl, Fr, ncells, dx, dt) -> nothing 
+\end{myjulia}
+\begin{myjulia}
 
 "Lax-Friedrichs kernel"
 function lxf!(qs::QS, Fl::QS, Fr::QS, 
@@ -84,13 +88,10 @@ function lxf!(qs::QS, Fl::QS, Fr::QS,
         Fl[x-1] = 0.5*((fr-fl) + a*(qr - ql))
     end
 end
-Helo
 
-\end{minted}
+\end{myjulia}
 \newpage
-\begin{minted}[breaklines,breakanywhere,linenos,firstnumber=85,fontsize=\scriptsize]
-{julia}
-
+\begin{myjulia}
 
 "Local Lax-Friedrichs kernel"
 function llxf!(qs::QS, Fl::QS, Fr::QS, 
@@ -106,8 +107,8 @@ function llxf!(qs::QS, Fl::QS, Fr::QS,
         Fl[x-1] = 0.5*((fr-fl) + a*(qr-ql))
     end
 end
-
-
+\end{myjulia}
+\begin{myjulia}
 # Timestepping strategies: (QS, dx) -> dt
 
 function make_const_dt(dt)
@@ -132,8 +133,9 @@ function make_lagging_dt(dt0, correction)
     end
     return lagging_dt
 end
+\end{myjulia}
 
-
+\begin{myjulia}
 # Initial conditions: ncells -> QS
 
 function gaussian_ics(ncells::Int)
@@ -147,11 +149,12 @@ function gaussian_ics(ncells::Int)
 end
 
 function breakingdam_ics(ncells::Int)
-    [x < ncells/2+1 ? Q(2,0) : Q(1,0) for x in 1:ncells+2]
+    [x < ncells/2 ? Q(2,0) : Q(1,0) for x in 1:ncells+2]
 end
+\end{myjulia}
 
-
-## Boundary conditions: QS -> nothing 
+\begin{myjulia}
+# Boundary conditions: QS -> nothing 
 
 function outflow_bcs!(qs::Array{Q,1})
     qs[1] = qs[2]
@@ -169,9 +172,12 @@ function reflecting_bcs!(qs::Array{Q,1})
     qs[end].h = qs[end-1].h
     qs[end].hu = -qs[end-1].hu
 end
+\end{myjulia}
+
+\begin{myjulia}
 
 # Sample experiment run
-qs,t,ts = run_experiment(50, 1000, make_cfl_dt(w), 
-             lxf!, outflow_bcs!, breakingdam_ics)
+qs,t,ts = run_experiment(50, 1000, make_cfl_dt(0.5), 
+              lxf!, outflow_bcs!, breakingdam_ics)
 
-\end{minted}
+\end{myjulia}
