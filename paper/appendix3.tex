@@ -3,13 +3,17 @@
 \definecolor{bg}{rgb}{0.95,0.95,0.95}
 
 \begin{myjulia}
+# Define precision
 const Float = Float64
 
-"State space datatype"
+# Define state space datatype
 mutable struct Q
     h :: Float
     hu :: Float
 end
+
+# Define spatial domain datatype
+QS = Array{Q,1}
 \end{myjulia}
 
 \begin{myjulia}
@@ -46,16 +50,14 @@ end
 \end{myjulia}
 
 \begin{myjulia}
-"Spatial domain datatype"
-QS = Array{Q,1}
 
 "Finite volume skeleton"
-function run_experiment(stoptime, ncells::Int, 
-    choose_dt, compute_fluxes!, apply_bcs!, apply_ics)
+function run(stoptime::Real, ncells::Int, choose_dt,
+             compute_fluxes!, apply_bcs!, apply_ics)
 
     qs = apply_ics(ncells)
-    Fl = Array{Q,1}(ncells+2)
-    Fr = Array{Q,1}(ncells+2)
+    Fl = QS(ncells+2)
+    Fr = QS(ncells+2)
 
     currenttime = 0
     timesteps = 0
@@ -111,24 +113,24 @@ end
 \begin{myjulia}
 # Timestepping strategies: (QS, dx) -> dt
 
-function make_const_dt(dt)
+function make_const_dt(dt::Float)
     return (qs, dx) -> dt
 end
 
-function cfl_dt(qs::QS, dx::Float, mu::Float)
+function cfl_dt(qs::QS, dx::Real, mu::Real)
     lambda = map(wavespeed,qs) |> maximum
-    return dx / lambda * mu
+    return Float(dx / lambda * mu)
 end
 
-function make_cfl_dt(correction::Float)
-    return (qs, dx) -> cfl_dt(qs, dx, correction)
+function make_cfl_dt(mu::Real)
+    return (qs, dx) -> cfl_dt(qs, dx, mu)
 end
 
-function make_lagging_dt(dt0, correction)
+function make_lagging_dt(dt0::Real, mu::Real)
     dt = dt0
     function lagging_dt(qs, dx)
         result = dt
-        dt = cfl_dt(qs, dx, correction)
+        dt = cfl_dt(qs, dx, mu)
         return result
     end
     return lagging_dt
@@ -139,7 +141,7 @@ end
 # Initial conditions: ncells -> QS
 
 function gaussian_ics(ncells::Int)
-    qs = Array{Q,1}(ncells+2)
+    qs = QS(ncells+2)
     mid = ncells / 2.0 + 1
     for x = 1:ncells+2
         pos_rel = (mid-x) / (ncells/10.0)
@@ -156,17 +158,17 @@ end
 \begin{myjulia}
 # Boundary conditions: QS -> nothing 
 
-function outflow_bcs!(qs::Array{Q,1})
+function outflow_bcs!(qs::QS)
     qs[1] = qs[2]
     qs[end] = qs[end-1]
 end
 
-function periodic_bcs!(qs::Array{Q,1})
+function periodic_bcs!(qs::QS)
     qs[1] = qs[end-1]
     qs[end] = qs[2]
 end
 
-function reflecting_bcs!(qs::Array{Q,1})
+function reflecting_bcs!(qs::QS)
     qs[1].h = qs[2].h
     qs[1].hu = -qs[2].hu
     qs[end].h = qs[end-1].h
@@ -177,7 +179,7 @@ end
 \begin{myjulia}
 
 # Sample experiment run
-qs,t,ts = run_experiment(50, 1000, make_cfl_dt(0.5), 
+qs,t,ts = run(50, 1000, make_cfl_dt(0.5), 
               lxf!, outflow_bcs!, breakingdam_ics)
 
 \end{myjulia}
