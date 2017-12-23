@@ -1,0 +1,171 @@
+\section{Appendix}
+
+\begin{minted}[breaklines,breakanywhere,linenos, fontsize=\scriptsize]
+{julia}
+
+const Float = Float64
+
+"State space datatype"
+mutable struct Q
+    h :: Float
+    hu :: Float
+end
+
+# Make Q a vector space
+
+import Base.+, Base.-, Base.*
+
+function +(lhs::Q, rhs::Q)
+    Q(lhs.h + rhs.h, lhs.hu + rhs.hu)
+end
+
+function -(lhs::Q, rhs::Q)
+    Q(lhs.h - rhs.h, lhs.hu - rhs.hu)
+end
+
+function *(a::Real, q::Q)
+    Q(a*q.h, a*q.hu)
+end
+
+
+# Encode shallow-water equations
+
+const G = 9.81f0
+
+"Shallow-water point-wise flux"
+function f(q :: Q)
+    Q(q.hu, q.hu^2/q.h + 0.5*G*q.h^2)
+end
+
+"Shallow-water point-wise max wave speed"
+function wavespeed(q :: Q)
+    u = q.hu / q.h
+    c = sqrt(G * q.h)
+    max(abs(u-c), abs(u+c))
+end
+
+"Spatial domain datatype"
+QS = Array{Q,1}
+
+"Finite volume framework"
+function run_experiment(stoptime, ncells::Int, 
+        choose_dt, compute_fluxes!, apply_bcs!, apply_ics)
+
+    qs = apply_ics(ncells)
+    Fl = Array{Q,1}(ncells+2)
+    Fr = Array{Q,1}(ncells+2)
+
+    currenttime = 0
+    timesteps = 0
+    dx = Float(1000.0/ncells)
+    
+    while currenttime < stoptime
+        apply_bcs!(qs)
+        dt = choose_dt(qs, dx)
+        compute_fluxes!(qs, Fl, Fr, ncells, dx, dt)
+        update_qs!(qs, Fl, Fr, ncells, dx, dt)
+        currenttime += dt
+        timesteps += 1
+    end
+    return (qs, currenttime, timesteps)
+end
+
+"Lax-Friedrichs kernel"
+function lxf!(qs::QS, Fl::QS, Fr::QS, 
+			  ncells::Int, 
+              dx::Float, dt::Float)
+    
+    a = dx/dt
+    for x = 2:ncells+2
+        ql,qr = qs[x-1], qs[x]
+        fl,fr = f(ql), f(qr)        
+
+        Fr[x-1] = 0.5*((fr-fl) - a*(qr - ql))
+        Fl[x-1] = 0.5*((fr-fl) + a*(qr - ql))
+    end
+end
+
+
+"Local Lax-Friedrichs kernel"
+function llxf!(qs::QS, Fl::QS, Fr::QS, 
+               ncells::Int, 
+               dx::Float, dt::Float)
+    
+    for x = 2:ncells+2
+        ql,qr = qs[x-1], qs[x]
+        fl,fr = f(ql), f(qr)
+
+        a = max(wavespeed(ql), wavespeed(qr))
+
+        Fr[x-1] = 0.5*((fr-fl) - a*(qr-ql))
+        Fl[x-1] = 0.5*((fr-fl) + a*(qr-ql))
+    end
+end
+
+
+# Timestepping strategies
+
+function make_const_dt(dt)
+    return (qs, dx) -> dt
+end
+
+function cfl_dt(qs::QS, dx::Float, mu::Float)
+    lambda = map(wavespeed,qs) |> maximum
+    return dx / lambda * mu
+end
+
+function make_cfl_dt(correction::Float)
+    return (qs, dx) -> cfl_dt(qs, dx, correction)
+end
+
+function make_lagging_dt(dt0, correction)
+    dt = dt0
+    function lagging_dt(qs, dx)
+        result = dt
+        dt = cfl_dt(qs, dx, correction)
+        return result
+    end
+    return lagging_dt
+end
+
+
+# Initial conditions
+
+function gaussian_ics(ncells::Int)
+    qs = Array{Q,1}(ncells+2)
+    mid = ncells / 2.0 + 1
+    for x = 1:ncells+2
+        pos_rel = (mid-x) / (ncells/10.0)
+        qs[x] = Q(exp(-pos_rel^2) + 1, 0.0)
+    end
+    return qs
+end
+
+function breakingdam_ics(ncells::Int)
+    [x < ncells/2+1 ? Q(2,0) : Q(1,0) for x in 1:ncells+2]
+end
+
+## Boundary Conditions
+
+function outflow_bcs!(qs::Array{Q,1})
+    qs[1] = qs[2]
+    qs[end] = qs[end-1]
+end
+
+function periodic_bcs!(qs::Array{Q,1})
+    qs[1] = qs[end-1]
+    qs[end] = qs[2]
+end
+
+function reflecting_bcs!(qs::Array{Q,1})
+    qs[1].h = qs[2].h
+    qs[1].hu = -qs[2].hu
+    qs[end].h = qs[end-1].h
+    qs[end].hu = -qs[end-1].hu
+end
+
+# Sample experiment run
+qs,t,ts = run_experiment(50, 1000, make_cfl_dt(w), 
+             lxf!, outflow_bcs!, breakingdam_ics)
+
+\end{minted}
