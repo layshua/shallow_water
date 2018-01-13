@@ -1,4 +1,4 @@
-.PHONY: run build show slides paper paper-verbose paper-autorebuild
+.PHONY: run build show slides paper paper-verbose paper-autorebuild review
 
 alles: build run show
 
@@ -20,8 +20,11 @@ paper-verbose:
 	cd paper/build; bibtex paper
 	cd paper; pdflatex -shell-escape -output-directory=build paper.tex
 
+review:
+	cd review; pdflatex -shell-escape -output-directory=build review.tex
+
 paper-autorebuild:
-	fswatch -0 paper | xargs -0 -n 1 make paper
+	fswatch -0 paper/appendix3.tex | xargs -0 -n 1 make paper
 
 slides:
 	jupyter-nbconvert --to slides Presentation.ipynb --reveal-prefix=reveal.js --output presentation/presentation

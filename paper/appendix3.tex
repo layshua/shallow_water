@@ -67,13 +67,14 @@ function run(stoptime::Real, ncells::Int, choose_dt,
         apply_bcs!(qs)
         dt = choose_dt(qs, dx)
         compute_fluxes!(qs, Fl, Fr, ncells, dx, dt)
-        update_qs!(qs, Fl, Fr, ncells, dx, dt)
+        for x = 2:ncells+1
+            qs[x] -= dt/dx * (Fr[x] + Fl[x-1])
+        end
         currenttime += dt
         timesteps += 1
     end
     return (qs, currenttime, timesteps)
 end
-
 \end{myjulia}
 \begin{myjulia}
 

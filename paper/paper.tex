@@ -68,11 +68,7 @@ Email: brei@in.tum.de}
 %\thispagestyle{plain}
 
 \begin{abstract}
-Lax-Friedrichs and Local Lax-Friedrichs are two numerical methods for solving the shallow water equations. 
-1 sentence intro
-2 sentences methods
-1 sentence impl/results
-why do people care?
+Lax-Friedrichs and Local Lax-Friedrichs are two numerical methods for solving the shallow water equations. This paper introduces both and provides a concise implementation in Julia. The Gaussian perturbation and breaking dam model problems are solved for each method over a range of parameters. The cause and effects of artificial viscosity are explored analytically and experimentally. 
 \end{abstract}
 
 \begin{keywords}
@@ -164,7 +160,7 @@ In order to ensure numerical stability, a necessary (but not sufficient) conditi
 
 Because this code uses the same timestep size for all cells, the maximum wave speed must be calculated across the entire spatial domain for each timestep iteration. The maximum wavespeed calculated from the flux Jacobian is exact only in the small-perturbation case, so an additional correction factor, $\mu \in [0,1]$, scales the timestep down. Thus the experimenter has two knobs for balancing speed, accuracy, and stability: The spatial discretization $\Delta x$ and the timestep correction $\mu$.
 
-The CFL condition is encoded on lines 93-96. 
+The CFL condition is encoded on lines 95--98. 
 
 
 \section{The Lax-Friedrichs Method}
@@ -191,7 +187,7 @@ This may be rearranged to yield a cell-wise flux function:
 
 \section{Lax-Friedrichs Results}
 
-The Lax-Friedrichs flux function is implemented on lines 60--72.  It was run against two model problems. The first used a Gaussian perturbation for its initial condition with reflecting boundary conditions. The second used a breaking dam initial condition with outflow boundary conditions. Two experiments were run in order to examine the behavior of the knobs $n_{cells}$  and $\mu$ independently. These are depicted in Figures~\ref{fig:lxf_gaussian_ncells},~\ref{fig:lxf_breakingdam_ncells}, and~\ref{fig:lxf_breakingdam_mu}. 
+The Lax-Friedrichs flux function is implemented on lines 62--74.  It was run against two model problems. The first used a Gaussian perturbation for its initial condition with reflecting boundary conditions. The second used a breaking dam initial condition with outflow boundary conditions. Two experiments were run in order to examine the behavior of the knobs $n_{cells}$  and $\mu$ independently. These are depicted in Figures~\ref{fig:lxf_gaussian_ncells},~\ref{fig:lxf_breakingdam_ncells}, and~\ref{fig:lxf_breakingdam_mu}. 
 
 \begin{figure}[h]%
  	\begin{center}%
@@ -255,10 +251,17 @@ Secondly, reducing the timestep size $\Delta t$ increases $a$, which then increa
 Local-Lax-Friedrichs is a modification which retains the stability benefits of artificial viscosity while decreasing the resulting dissipation. In the basic Lax-Friedrichs, the viscosity parameter $a$ is a constant derived from the timestep $\Delta t$, which in turn is derived from the CFL condition. Although the timestep is contrained to be constant over the entire spatial domain (local time stepping is not considered in the scope of this paper), the viscosity is not. Varying the viscosity over the spatial domain is advantageous: in regions with shocks or other discontinuities, the presence of viscosity improves numerical stability, and in smooth regions, the lack of viscosity leads to a less dissipative and hence more accurate solution. 
 
 
-\begin{figure}[h]%
+\begin{figure}[t]%
     \begin{center}%
         \includegraphics[scale=0.6]{../plots/artificial_viscosity.png}%
         \caption{Wavespeed over the spatial domain}\label{fig:artificial_viscosity}%
+    \end{center}%
+\end{figure}
+
+\begin{figure}[t]%
+    \begin{center}%
+        \includegraphics[scale=0.6]{../plots/llxf_breakingdam_mu.png}%
+        \caption{Local Lax-Friedrichs, breaking dam scenario. }\label{fig:llxf_breakingdam_mu}%
     \end{center}%
 \end{figure}
 
@@ -275,28 +278,9 @@ From the CFL condition, it is clear that this approach is strictly less viscous 
 \[\lvert f'(q)\rvert \leq \frac{\Delta x}{\Delta t}\]
 
 
-The Local Lax-Friedrichs method does not entirely break the coupling between dissipation and $\mu$, but it strongly reduces it, as depicted in Figure~\ref{fig:llxf_breakingdam_mu}. This experiment used the exact same parameters as Figure~\ref{fig:lxf_breakingdam_mu}, substituting only the LxF kernel (as implemented in lines 60--72) with the LLxF kernel (as implemented in lines 73--86).
-\begin{figure}[h]%
-    \begin{center}%
-        \includegraphics[scale=0.6]{../plots/llxf_breakingdam_mu.png}%
-        \caption{Local Lax-Friedrichs, breaking dam scenario. }\label{fig:llxf_breakingdam_mu}%
-    \end{center}%
-\end{figure}
+The Local Lax-Friedrichs method does not entirely break the coupling between dissipation and $\mu$, but it strongly reduces it, as depicted in Figure~\ref{fig:llxf_breakingdam_mu}. This experiment used the exact same parameters as Figure~\ref{fig:lxf_breakingdam_mu}, substituting only the LxF kernel (as implemented in lines 62--74) with the LLxF kernel (as implemented in lines 75--88).
 
 \section{LxF vs LLxF Comparison}
-
-\begin{figure}[h]%
-    \begin{center}%
-        \includegraphics[scale=0.6]{../plots/lxf_llxf_breakingdam.png}%
-        \caption{Comparison of Lax-Friedrichs vs Local Lax-Friedrichs, breakin dam scenario}\label{fig:cmp_breakingdam}%
-    \end{center}%
-\end{figure}
-\begin{figure}[h]%
-    \begin{center}%
-        \includegraphics[scale=0.6]{../plots/lxf_llxf_gaussian.png}%
-        \caption{Comparison of Lax-Friedrichs vs Local Lax-Friedrichs, gaussian perturbation scenario.}\label{fig:cmp_gaussian}%
-    \end{center}%
-\end{figure}
 
 
 A final round of experiments were conducted to compare Lax-Friedrichs to Local Lax Friedrichs. These indicate that Local Lax-Friedrichs is decidedly less dissipative and more accurate. Figure~\ref{fig:cmp_breakingdam} shows the results of running LLxF with a middling $\mu=0.4$ against LxF with different $\mu$ for the breaking dam scenario.
@@ -304,6 +288,20 @@ A final round of experiments were conducted to compare Lax-Friedrichs to Local L
 At $\mu=0.4$, the LLxF method performs only slightly worse than LxF at $\mu=1.0$. For any given choice of $\mu$, the LLxF reaches a better solution in the same number of timesteps. The quality of the solutions converge as $\mu \to 1.0$. On the other hand, LLxF requires additional work to calculate $a(x)$ for each cell, though the amount is small and linear in the number of cells.
 
 The stairstep oscillations observed in the breaking dam case for LxF are not present for LLxf. This is presumably because the value of $Q_i^n$ enters into the calculation of $Q_i^{n+1}$, albeit rather indirectly, via the max wavespeed $\lambda_{max}$ and then the cell-wise flux $F_{i+1/2}^n$. 
+
+\begin{figure}[t]%
+    \begin{center}%
+        \includegraphics[scale=0.6]{../plots/lxf_llxf_breakingdam.png}%
+        \caption{Comparison of Lax-Friedrichs vs Local Lax-Friedrichs, breakin dam scenario}\label{fig:cmp_breakingdam}%
+    \end{center}%
+\end{figure}
+
+\begin{figure}[t]%
+    \begin{center}%
+        \includegraphics[scale=0.6]{../plots/lxf_llxf_gaussian.png}%
+        \caption{Comparison of Lax-Friedrichs vs Local Lax-Friedrichs, gaussian perturbation scenario.}\label{fig:cmp_gaussian}%
+    \end{center}%
+\end{figure}
 
 \section{Implementation}
 
@@ -315,12 +313,9 @@ The state space $Q$ is a mutable structure. The spatial domain $q(x) \forall x$ 
 
 These additional constraints can be expressed within the type system. Firstly, by using \verb!OffsetArray!s instead of regular \verb!Array!s, the indices can be cheaply translated to $[1, n_{cells}]$. Secondly, one may parameterize the spatial domain by the number of cells, \verb|QS{ncells}|, e.g. by using \verb|StaticArray|s, ensuring that the array size is known at JIT-compile time. This allows for array-size correctness checks and compiler optimizations. Finally, a custom constructor could encapsulate all of this and enforce the existence of the ghost cells. These features may prove helpful on larger projects, though they introduce additional complexity.
 
-There are several tradeoffs associated with using an array-of-structures compared to a structure-of-arrays. In performance-critical code, this choice is driven primarily by memory access patterns, which are not considered here. The principal benefit of this representation is that it moves more of the semantics of the problem domain into the type system. On the other hand, this representation is initially unaware of the fact that $Q$ forms a vector space, resulting in duplicated, messier, and possibly less efficient code. 
+The choice of an array-of-structures representation is most consistent with the theory, but disregards the useful fact that $Q$ forms a vector space. This problem is readily resolved thanks to \emph{multiple dispatch}. In Julia, a function is resolved to a method by examining all of the types in the signature, rather than simply the `owning' object.\cite{doi:10.1137/141000671} This means that operations such addition can be extended to custom types in a unified way. Lines 12--26 extend addition and scalar multiplication over the state space type $Q$.
 
-This problem may be resolved quickly. Methods in Julia have multiple dispatch, which means that a function is resolved to a method by examining all of the types in the signature, rather than simply the `owning' object.\cite{doi:10.1137/141000671} This means that operations such addition can be extended to custom types in a unified way. Lines 12--26 extend addition and scalar multiplication over the state space type $Q$.
-
-
-Let us now consider a clean organizing principle for the code. A basic skeleton for running experiments is given on lines 38--59. The following components are allowed to vary: Flux function f, initial conditions, boundary conditions, timestep size. In traditional object-oriented programming, this decoupling is usually achieved via the Strategy Pattern. Because Julia has first-class functions (lambdas), it can be achieved much more tersely. 
+The basic finite volume skeleton is given on lines 38--61. The skeleton accepts abstract strategies for flux computations, timestep computations, initial conditions, and boundary conditions. These strategies are implemented as first-class functions rather than as an object heirarchy. Lines 91--93 demonstrate a higher-order function which acts like a constructor for timestep strategies. Lines 100--102 demonstrate \emph{currying} to convert a three-argument \verb!cfl_dt()! into a two-argument version. Lines 104--112 demonstrate using the method's \emph{closure} to store arbitrary state, in this case the $\Delta t$ calculated during the preceding function call. Finally, lines 147--148 ties everything together to run Lax-Friedrichs on a breaking dam scenario.
 
 
 \section{Conclusion}
