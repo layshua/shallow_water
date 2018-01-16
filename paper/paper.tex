@@ -200,21 +200,21 @@ The Lax-Friedrichs method was run against two model problems: a Gaussian perturb
 \begin{figure}[h]%
  	\begin{center}%
  		\includegraphics[scale=0.6]{../plots/lxf_gaussian_ncells.png}%
- 		\caption{LxF performance relative to $n_{cells}$}\label{fig:lxf_gaussian_ncells}%
+ 		\caption{Performance of the Lax-Friedrichs method relative to $n_{cells}$ for a Gaussian perturbation scenario with $t=50s, \mu=0.5$.}\label{fig:lxf_gaussian_ncells}%
  	\end{center}%
 \end{figure}
 
 \begin{figure}[h]%
  	\begin{center}%
  		\includegraphics[scale=0.6]{../plots/lxf_breakingdam_ncells.png}%
- 		\caption{LxF performance relative to $n_{cells}$}\label{fig:lxf_breakingdam_ncells}%
+ 		\caption{Performance of the Lax-Friedrichs method relative to $n_{cells}$ for a breaking dam scenario with $t=50s, \mu=0.5$.}\label{fig:lxf_breakingdam_ncells}%
  	\end{center}%
 \end{figure}
 
 \begin{figure}[h]%
  	\begin{center}%
  		\includegraphics[scale=0.6]{../plots/lxf_breakingdam_mu.png}%
- 		\caption{LxF performance relative to $\mu$}\label{fig:lxf_breakingdam_mu}%
+    \caption{Performance of the Lax-Friedrichs method relative to $\mu$ for a breaking dam scenario with $t = 50s, n_{cells} = 1000$.}\label{fig:lxf_breakingdam_mu}%
  	\end{center}%
 \end{figure}
 
@@ -262,14 +262,14 @@ Local-Lax-Friedrichs is a modification which retains the stability benefits of a
 \begin{figure}[t]%
     \begin{center}%
         \includegraphics[scale=0.6]{../plots/artificial_viscosity.png}%
-        \caption{Wavespeed over the spatial domain}\label{fig:artificial_viscosity}%
+        \caption{Comparison of height, momentum, and wavespeed over the spatial domain for a Gaussian perturbation with $t = 60s, \mu=1.0, n_{cells} = 100$.}\label{fig:artificial_viscosity}%
     \end{center}%
 \end{figure}
 
 \begin{figure}[t]%
     \begin{center}%
         \includegraphics[scale=0.6]{../plots/llxf_breakingdam_mu.png}%
-        \caption{Local Lax-Friedrichs, breaking dam scenario. }\label{fig:llxf_breakingdam_mu}%
+        \caption{Performance of Local Lax-Friedrichs relative to $\mu$ for a breaking dam scenario with $t = 50s, n_{cells} = 1000.$ Compare to Figure~\ref{fig:lxf_breakingdam_mu}.}\label{fig:llxf_breakingdam_mu}%
     \end{center}%
 \end{figure}
 
@@ -300,14 +300,14 @@ The stairstep oscillations observed in the breaking dam case for LxF are not pre
 \begin{figure}[t]%
     \begin{center}%
         \includegraphics[scale=0.6]{../plots/lxf_llxf_breakingdam.png}%
-        \caption{Comparison of Lax-Friedrichs vs Local Lax-Friedrichs, breakin dam scenario}\label{fig:cmp_breakingdam}%
+        \caption{Comparison of Lax-Friedrichs vs Local Lax-Friedrichs for a breaking dam scenario with $t = 50s, n_{cells} = 200$.}\label{fig:cmp_breakingdam}%
     \end{center}%
 \end{figure}
 
 \begin{figure}[t]%
     \begin{center}%
         \includegraphics[scale=0.6]{../plots/lxf_llxf_gaussian.png}%
-        \caption{Comparison of Lax-Friedrichs vs Local Lax-Friedrichs, gaussian perturbation scenario.}\label{fig:cmp_gaussian}%
+        \caption{Comparison of Lax-Friedrichs vs Local Lax-Friedrichs for a Gaussian perturbation scenario with $t = 200s, n_{cells} = 200$.}\label{fig:cmp_gaussian}%
     \end{center}%
 \end{figure}
 
@@ -321,7 +321,7 @@ These additional constraints could be expressed within the type system. Firstly,
 
 The choice of an array-of-structures representation is consistent with the theory, but disregards the fact that $Q$ forms a vector space. This problem is readily resolved thanks to Julia's \emph{multiple dispatch}, where a function is resolved to a method by examining all of the types in the signature, rather than simply the `owning' object.\cite{doi:10.1137/141000671} This means that operations such addition can be extended to custom types in a unified way. Lines 12--26 extend addition and scalar multiplication over the state space type $Q$.
 
- The general finite volume skeleton (Eq.~\ref{eq:fv}) is given on lines 38--61. The skeleton accepts abstract strategies for flux computations, timestep computations, initial conditions, and boundary conditions. These strategies are implemented as first-class functions rather than as an object heirarchy. Strategies for LxF fluxes (Eq.~\ref{eq:lxf}) and LLxF fluxes (Eq.~\ref{eq:llxf}) are implemented on lines 62--74 and 75--88, respectively. Lines 91--93 demonstrate a higher-order function which acts like a constructor for timestep strategies. Lines 100--102 demonstrate \emph{currying} to convert a three-argument \verb!cfl_dt()! into a two-argument version. Lines 104--112 demonstrate using the method's \emph{closure} to store arbitrary state, in this case the $\Delta t$ calculated during the preceding function call. Finally, lines 147--148 ties everything together to run Lax-Friedrichs on a breaking dam scenario.
+ The general finite volume skeleton (Eq.~\ref{eq:fv}) is given on lines 38--61. The skeleton accepts abstract strategies for flux computations, timestep computations, initial conditions, and boundary conditions. These strategies are implemented as first-class functions rather than as an object heirarchy. Lines 91--93 demonstrate a higher-order function which acts like a constructor for timestep strategies. Lines 100--102 demonstrate \emph{currying} to convert a three-argument \verb!cfl_dt()! into a two-argument version. Lines 104--112 demonstrate using the method's \emph{closure} to store arbitrary state, in this case the $\Delta t$ calculated during the preceding function call. Finally, lines 147--148 ties everything together to run Lax-Friedrichs on a breaking dam scenario.
 
 % The cell-wise fluxes $F_{i+1/2}, F_{i-1/2}$ are represented slightly differently in the code
 
